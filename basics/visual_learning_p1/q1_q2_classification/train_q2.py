@@ -10,54 +10,18 @@ import random
 import wandb
 
 class BasicBlock(nn.Module):
-    def __init__(self, in_features, features):
-        super().__init__()
-        self.conv1 = torch.nn.Conv2d(in_features, features, 3, stride=2, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(features)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = torch.nn.Conv2d(features, features,  3, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(features)
-        self.downsample = torch.nn.Sequential(
-            torch.nn.Conv2d(in_features, features, kernel_size=1, stride=2, bias=False),
-            torch.nn.BatchNorm2d(features)
-        )
-            
-    def forward(self, x):
-        identity = x
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-        
-        out = self.conv2(out)
-        out = self.bn2(out)
-        
-        identity = self.downsample(x)
-
-        out += identity
-        out = self.relu(out)
-        return out
+    pass
             
 class ResNet(nn.Module):
     def __init__(self, num_classes) -> None:
         super().__init__()
 
-        #self.resnet = torchvision.models.resnet18(weights='IMAGENET1K_V1')
-        ##################################################################
-        # TODO: Define a FC layer here to process the features
-        ##################################################################
-        # self.linear = nn.Linear(1000, num_classes)
-        
         self.conv = torch.nn.Conv2d(3, 32, kernel_size=7, stride=2, padding=3, bias=False)
-        self.layer0 = BasicBlock(32, 64)
-        self.layer1 = BasicBlock(64, 128)
+        # instantiate 2 basic blocks:channels = 32->64->128
         self.pool = torch.nn.AvgPool2d(2, 2)
         
         self.fc1 = torch.nn.Linear(2048, 128)
         self.fc2 = torch.nn.Linear(128, num_classes)
-        
-        ##################################################################
-        #                          END OF YOUR CODE                      #
-        ##################################################################
         
 
     def forward(self, x):
@@ -67,16 +31,7 @@ class ResNet(nn.Module):
         # output = self.resnet(x)
         # output = self.linear(output)
         N = x.size(0)
-        output = self.conv(x)
-        output = self.layer0(output)
-        output = self.layer1(output)
-        output = self.pool(output)
-        
-        output = output.view(N, -1)
-        output = self.fc1(output)
-        output = self.fc2(output)
-        
-        return output
+        return NotImplemented
         ##################################################################
         #                          END OF YOUR CODE                      #
         ##################################################################
@@ -109,7 +64,7 @@ if __name__ == "__main__":
     ##################################################################
     
     print(args)
-    wandb.login(key="1d70da927fe2f85af2f2aa8e4861950d6f63844e")
+    wandb.login(key="YOUR_WANDB_KEY_HERE")
     run = wandb.init(
         name = "initial", ## Wandb creates random run names if you skip this field
         reinit = True, ### Allows reinitalizing runs when you re-run this cell

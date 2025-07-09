@@ -1,8 +1,6 @@
 from __future__ import print_function
-
 import torch
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
 import utils
 import wandb
 from voc_dataset import VOCDataset
@@ -34,8 +32,8 @@ def train(args, model, optimizer, scheduler=None, model_name='model'):
     model.train()
     model = model.to(args.device)
     
-    # 2. what is the correct loss function for multi-class classification?
-    criterion = torch.nn.CrossEntropyLoss(reduction='sum')
+    # TODO: what is the correct loss function for multi-class classification?
+    criterion = ...
 
     cnt = 0
 
@@ -59,12 +57,7 @@ def train(args, model, optimizer, scheduler=None, model_name='model'):
             output = model(data)
             output = output * wgt# zeros out 'difficult' labels
             
-            output_max, _ = output.max(dim=-1, keepdim=True)
-            exps = torch.exp(output - output_max)
-            log_sum_exps = exps.sum(dim = -1, keepdim=True).log()
-            loss_term = (output - output_max) - log_sum_exps
-            loss_term = loss_term * target
-            loss = -loss_term.sum()
+            loss = ...
             
             loss.backward()
             optimizer.step()
@@ -76,12 +69,7 @@ def train(args, model, optimizer, scheduler=None, model_name='model'):
         # evaluate model every epoch and log
         model.eval()
         ap, map = utils.eval_dataset_map(model, args.device, test_loader)
-        # log train training loss, learning rate, and map from evaluation
-        wandb.log({
-            "train loss": train_loss/len(train_loader),
-            "lr": scheduler.get_last_lr()[0],
-            "map": map,
-        })
+        #TODO: log train training loss, learning rate, and map from evaluation
         model.train()
         
         if scheduler is not None:

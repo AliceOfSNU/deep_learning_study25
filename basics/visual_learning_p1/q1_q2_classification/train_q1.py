@@ -24,10 +24,10 @@ if __name__ == "__main__":
         inp_size=64,
         use_cuda=True,
         val_every=70,
-        lr=1e-3,# TODO,
-        batch_size=32,#TODO,
-        step_size=5,#TODO,
-        gamma=0.7#TODO
+        lr=...,# TODO,
+        batch_size=...,#TODO,
+        step_size=...,#TODO,
+        gamma=...#TODO
     )
     ##################################################################
     #                          END OF YOUR CODE                      #
@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     print(args)
     # initialize wandb - fill in your api key here
-    wandb.login(key="1d70da927fe2f85af2f2aa8e4861950d6f63844e")
+    wandb.login(key="YOUR_WANDB_KEY_HERE")
     run = wandb.init(
         name = "initial", ## Wandb creates random run names if you skip this field
         reinit = True, ### Allows reinitalizing runs when you re-run this cell
@@ -43,9 +43,9 @@ if __name__ == "__main__":
     )
     # initializes the model
     model = SimpleCNN(num_classes=len(VOCDataset.CLASS_NAMES), inp_size=64, c_dim=3)
-    # 1. initializes Adam optimizer and simple StepLR scheduler
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
+    # TODO: initializes Adam optimizer and simple StepLR scheduler
+    optimizer = ...
+    scheduler = ...
     # trains model using your training code and reports test map
     test_ap, test_map = trainer.train(args, model, optimizer, scheduler)
     print('test map:', test_map)
