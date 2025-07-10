@@ -1,0 +1,21 @@
+1. add image transforms to the dataset
+
+2. write the __init__ and the forward() method of the SimpleCNN
+
+3. define the optimizer and the scheduler
+
+4. fill in the ARGS 
+
+5. define the correct loss function, and fill in loss in the training loop
+
+6. run train_q1.py
+
+7. add logging to the training loop and visualize the training results
+
+8. implement the basic block
+
+9. implement the __init__ and the forward() method of ResNet
+
+10. run train_q2.py
+
+11. compare the results to train_q1.py

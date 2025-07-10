@@ -32,7 +32,7 @@ def train(args, model, optimizer, scheduler=None, model_name='model'):
     model.train()
     model = model.to(args.device)
     
-    # TODO: what is the correct loss function for multi-class classification?
+    # TODO: what is the correct loss function for multi-label classification?
     criterion = ...
 
     cnt = 0
