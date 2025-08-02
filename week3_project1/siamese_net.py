@@ -3,7 +3,7 @@ from torch import nn
 import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
-
+import math
 class BasicBlock(nn.Module):
     def __init__(self, in_features, features):
         super().__init__()
@@ -144,3 +144,24 @@ class CenterLoss(nn.Module):
         mask = labels.eq(self.classes.expand(batch_size, self.num_classes))
 
         return torch.mean(torch.masked_select(distances, mask))
+    
+class ArcFace(nn.Module):
+    def __init__(self, embed_dim=512, num_classes=7001):
+        super().__init__()
+        self.weight = nn.Parameter(torch.normal(0, 0.01, (num_classes, embed_dim)))
+        self.margin = 0.2
+        self.radius = 10
+        self.num_classes = num_classes
+        self.cos_m = math.cos(self.margin)
+        self.sin_m = math.sin(self.margin)
+        
+    def forward(self, features, labels):
+        weight = F.normalize(self.weight, dim=1)
+        features = F.normalize(features, dim=1, eps=1e-6)
+        cosine = F.linear(features, weight).clamp(min=-1.0, max=1.0)
+        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+        cosine_m_theta = cosine * self.cos_m - sine * self.sin_m
+        # cosine_m_theta = torch.where(cosine > 0, cosine_m_theta, cosine)
+        l = F.one_hot(labels, num_classes=self.num_classes)
+        arcloss = l.float()*cosine_m_theta + (1-l.float())*cosine
+        return self.radius * arcloss, cosine
