@@ -82,7 +82,15 @@ class CTCLoss(object):
 
             # Your Code goes here
             # raise NotImplementedError
-            pass
+            ctc = CTC(self.BLANK)
+            extSymbols, skipConnect = ctc.targetWithBlank(target[b, :target_lengths[b]])
+            forward_probs = ctc.forwardProb(logits[:input_lengths[b], b, :], extSymbols, skipConnect)
+            backward_probs = ctc.backwardProb(logits[:input_lengths[b], b, :], extSymbols, skipConnect)
+            gamma = ctc.postProb(forward_probs, backward_probs)
+
+            for t in range(gamma.shape[0]):
+                for s in range(gamma.shape[1]):
+                    totalLoss[b] -= np.log(logits[t, b, extSymbols[s]]) * gamma[t, s] 
             # <---------------------------------------------
 
         return np.mean(totalLoss)

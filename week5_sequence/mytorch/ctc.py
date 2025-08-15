@@ -34,7 +34,17 @@ class CTC(object):
         extSymbols = []
         skipConnect = []
 
-        raise NotImplementedError
+        extSymbols.append(self.BLANK)
+        for sym in target:
+            extSymbols.append(sym)
+            extSymbols.append(self.BLANK)
+        for i in range(len(extSymbols)):
+            if extSymbols[i] != self.BLANK and i-2 >= 0 and extSymbols[i-2] != extSymbols[i]:
+                skipConnect.append(1)
+            else:
+                skipConnect.append(0)
+
+
         return np.asarray(extSymbols), np.asarray(skipConnect)
 
     def forwardProb(self, logits, extSymbols, skipConnect):
@@ -43,7 +53,7 @@ class CTC(object):
         Input
         -----
         logits: (np.array, dim = (input_len, channel))
-                predict (log) probabilities
+                predict probabilities
 
         extSymbols: (np.array, dim = 1)
                     extended label sequence with blanks
@@ -63,7 +73,15 @@ class CTC(object):
         # -------------------------------------------->
 
         # Your Code goes here
-        raise NotImplementedError
+        alpha[0, 0] = logits[0, extSymbols[0]]
+        alpha[0, 1] = logits[0, extSymbols[1]]
+        for t in range(1, T):
+            alpha[t, 0] = alpha[t-1, 0] * logits[t, extSymbols[0]]
+            for s in range(1, S):
+                alpha[t, s] = alpha[t-1, s] + alpha[t-1, s-1]
+                if skipConnect[s]:
+                    alpha[t, s] += alpha[t-1, s-2]
+                alpha[t, s] *= logits[t, extSymbols[s]]
         # <---------------------------------------------
 
         return alpha
@@ -95,7 +113,19 @@ class CTC(object):
         # -------------------------------------------->
 
         # Your Code goes here
-        raise NotImplementedError
+        beta[T-1, S-1] = logits[T-1, extSymbols[S-1]]
+        beta[T-1, S-2] = logits[T-1, extSymbols[S-2]]
+        for t in range(T-2, -1, -1):
+            beta[t, S-1] = beta[t+1, S-1] * logits[t, extSymbols[S-1]]
+            for s in range(S-2, -1, -1):
+                beta[t, s] = beta[t+1, s] + beta[t+1, s+1]
+                if s+2 < S and skipConnect[s+2]:
+                    beta[t, s] += beta[t+1, s+2]
+                beta[t, s] *= logits[t, extSymbols[s]]
+
+        for t in range(T):
+            for s in range(S):
+                beta[t, s] /= logits[t, extSymbols[s]]
         # <---------------------------------------------
 
         return beta
@@ -117,12 +147,13 @@ class CTC(object):
                 posterior probability
 
         """
-        gamma = None
 
         # -------------------------------------------->
 
         # Your Code goes here
-        raise NotImplementedError
+        gamma = alpha * beta
+        gamma /= gamma.sum(axis=1)[:,None]
+
         # <---------------------------------------------
 
         return gamma
