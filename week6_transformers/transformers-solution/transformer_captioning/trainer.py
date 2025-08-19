@@ -1,6 +1,6 @@
 import numpy as np
 from utils import  decode_captions
-
+from tqdm import tqdm
 import torch
 
 
@@ -23,9 +23,13 @@ class Trainer(object):
     def loss(self, predictions, labels):
         #TODO - Compute cross entropy loss between predictions and labels. 
         #Make sure to compute this loss only for indices where label is not the null token.
-        #The loss should be averaged over batch and sequence dimensions. 
-        B, S, V = predictions.shape
-        loss = torch.nn.functional.cross_entropy(predictions.view(-1, V), labels.flatten(), ignore_index=0, reduction='mean')
+        #The loss should be averaged over batch and sequence dimensions.
+        predictions = predictions.view(-1, predictions.size(-1)) 
+        labels = labels.flatten()
+        nonnull_pos = (labels != 0).float()
+        one_hot_labels = torch.nn.functional.one_hot(labels, num_classes = predictions.size(-1)).float()
+        loss = torch.nn.functional.cross_entropy(predictions, one_hot_labels, reduce=False)
+        loss = (loss*nonnull_pos).mean()
         return loss
     
     def val(self):
@@ -53,7 +57,7 @@ class Trainer(object):
         for i in range(self.num_epochs):
             epoch_loss = 0
             num_batches = 0
-            for batch in self.train_dataloader:
+            for batch in tqdm(self.train_dataloader):
                 features, captions = batch[0].to(self.device), batch[1].to(self.device)
                 logits = self.model(features, captions[:, :-1])
 

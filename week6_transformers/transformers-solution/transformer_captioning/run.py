@@ -58,6 +58,7 @@ def vis_imgs(split):
       sample_captions = decode_captions(sample_captions, transformer.idx_to_word)
       
       for gt_caption, sample_caption, url in zip(gt_captions, sample_captions, urls):
+          print(f"gt: {gt_caption},\nsample:{sample_caption},\nurl:{url}")
           img = image_from_url(url)
           # Skip missing URLs.
           if img is not None: 
@@ -65,9 +66,9 @@ def vis_imgs(split):
             plt.title('%s\n%s\nGT:%s' % (split, sample_caption, gt_caption))
             plt.axis('off')
             plt.savefig('plots/' + exp_name + '_%s_%d.png' % (split, num_imgs))
-            num_imgs += 1
-            if num_imgs >= 5: break
+          num_imgs += 1
+          if num_imgs >= 10: break
       return 
 
-vis_imgs('train')
+# vis_imgs('train')
 vis_imgs('val')

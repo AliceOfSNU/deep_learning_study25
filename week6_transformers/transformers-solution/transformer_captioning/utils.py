@@ -105,7 +105,7 @@ class CocoDataset(Dataset):
         split_size = self.data["%s_captions" % split].shape[0]
         captions = self.data["%s_captions" % split][idx]
         image_idxs = self.data["%s_image_idxs" % split][idx]
-        image_features = self.data["%s_features" % split][idx]
+        image_features = self.data["%s_features" % split][image_idxs]
         return image_features, captions.astype(np.int64), image_idxs
 
 def image_from_url(url):
@@ -114,7 +114,15 @@ def image_from_url(url):
     We write the image to a temporary file then read it back. Kinda gross.
     """
     try:
-        f = urllib.request.urlopen(url)
+        user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'
+        values = {'name' : 'Michael Foord',
+                'location' : 'Northampton',
+                'language' : 'Python' }
+        headers = { 'User-Agent' : user_agent }
+
+        data = urllib.parse.urlencode(values)
+        data = data.encode('ascii')
+        f = urllib.request.urlopen(url, data)
         _, fname = tempfile.mkstemp()
         with open(fname, "wb") as ff:
             ff.write(f.read())
