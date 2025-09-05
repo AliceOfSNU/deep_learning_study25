@@ -106,7 +106,29 @@ class CausalSelfAttention(nn.Module):
         b, t, n_embd = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
 
         ## TODO : Multi-head attention
-        raise NotImplementedError("Attention forward pass not implemented.")
+        # write forward pass (Multi Head Attention)
+        q = self.q_proj(x)
+        k = self.k_proj(x)
+        v = self.v_proj(x)
+
+        q = q.view(b, t, self.n_head, n_embd // self.n_head).transpose(1, 2) # (b, nh, t, dk)
+        k = k.view(b, t, self.n_head, n_embd // self.n_head).transpose(1, 2) # (b, nh, t, dk)
+        v = v.view(b, t, self.n_head, n_embd // self.n_head).transpose(1, 2) # (b, nh, t, dk)
+
+        torch.cuda.empty_cache()
+        start_memory = torch.cuda.memory_allocated()
+        # Compute attention scores
+        attn = q @ k.transpose(-1, -2)
+        attn = attn / math.sqrt(k.size(-1))
+        attn = attn.masked_fill(self.bias[:,:,:t,:t] == 0, float('-inf'))
+        attn = F.softmax(attn, dim=-1) # (b, nh, t, t)
+
+        y = attn @ v # (b, nh, t, dk)
+        y = y.transpose(1, 2).contiguous().view(b, t, self.n_embd) # re-assemble all head outputs side by side
+        y = self.out_proj(y)
+
+        end_memory = torch.cuda.memory_allocated()
+        return y, end_memory - start_memory
 
     def forward_ref(self, x):
         b, t, n_embd = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
@@ -171,26 +193,73 @@ class GroupedQueryAttention(nn.Module):
         """
 
         #### TODO: Initialize any required variables. ####
+        self.n_q_head = config.n_query_head##=6
+        self.n_kv_head = config.n_kv_head##=3
+        self.n_embd = config.n_embd
+        self.dk = self.n_embd // self.n_q_head
 
         # TODO: Key, Query, Value Projections: you must define these as nn.Linear().
-        self.q_proj = None # Do NOT rename.
-        self.k_proj = None # Do NOT rename.
-        self.v_proj = None # Do NOT rename.
+        self.q_proj = nn.Linear(self.n_embd, self.n_embd ) # Do NOT rename.
+        self.k_proj = nn.Linear(self.n_embd, self.dk * self.n_kv_head) # Do NOT rename.
+        self.v_proj = nn.Linear(self.n_embd, self.dk * self.n_kv_head) # Do NOT rename.
 
         # TODO: Output Projection: you must define this as nn.Linear().
-        self.out_proj = None # Do NOT rename.
+        self.out_proj = nn.Linear(self.n_embd, self.n_embd) # Do NOT rename.
 
         #### TODO: Complete initialization of other variables here. ####
+        # regularization
+        self.attn_dropout = nn.Dropout(config.attn_pdrop)
+        self.resid_dropout = nn.Dropout(config.resid_pdrop)
 
-        raise NotImplementedError("Initialization is not implemented.")
+        # causal mask to ensure that attention is only applied to the left in the input sequence
+        self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
+                                     .view(1, 1, config.block_size, config.block_size))
+        
 
     def forward(self, x):
         """
         TODO: Implement the forward pass for Grouped Query Attentionin a similar fashion to CausalSelfAttention.
         Make sure to implement RoPE for GQA if the config specifies that RoPE should be used, and keep track of memory consumed.
         """
+        # ex_
+        # q_heads = 6
+        # kv_heads = 3 
+        # g = 2
 
-        raise NotImplementedError("Forward pass is not implemented.")
+        # query: [B, T, D] => [B, T, q_heads, D//q_heads=dk] => [B, q_heads=6, T, dk]
+                # => divide queries into 3 groups
+                # [B, kv_heads=3, g=2, T, dk]
+        # key:   [B, T, D] => [B, T, kv_heads=3, dk] => [B, kv_heads=3, 1, T, dk] 
+        # attn : query * key.transpose(-1, -2)
+        b, t, n_embd = x.size()
+        # [B, T, D] => [B, T, n_q_head, dk] => [B, n_q_head=6, T, dk]
+        q = self.q_proj(x).view(b, t, self.n_q_head, self.dk).transpose(1, 2) # (b, 6, t, dk) => (b, 3, 2, t, dk)
+        # [B, T, D] => [B, T, n_kv_head, dk] => [B, n_kv_head=3, T, dk]
+        k = self.k_proj(x).view(b, t, self.n_kv_head, self.dk).transpose(1, 2) # (b, 3, t, dk)
+        v = self.v_proj(x).view(b, t, self.n_kv_head, self.dk).transpose(1, 2) # (b, 3, t, dk)
+
+        q = q.view(b, self.n_kv_head, -1, t, self.dk) # (b, 3, 2, t, dk)
+        k = k.view(b, self.n_kv_head, 1, t, self.dk)  # (b, 3, 1, t, dk)
+        
+        torch.cuda.empty_cache()
+        start_memory = torch.cuda.memory_allocated()
+
+        attn = q @ k.transpose(-1, -2) # (b, 3, 2, t, t)
+        attn = attn / math.sqrt(self.dk)
+        attn = attn.masked_fill(self.bias[:,:,:t,:t] == 0, float('-inf'))
+        attn = attn.softmax(dim=-1)
+        attn = self.attn_dropout(attn)
+
+        # y: [B, T, D]
+        # (b, 3, 2, t, t) @ (b, 3, 1, t, dk) => (b, 3, 2, t, dk) => (b, 6, t, dk) => (b, t, n_q_head, dk) => (b, t, D)
+        y = attn @ v.unsqueeze(2)
+        end_memory = torch.cuda.memory_allocated()
+
+        y = y.view(b, self.n_q_head, t, self.dk).transpose(1, 2).flatten(-2)
+
+        y = self.resid_dropout(self.out_proj(y))
+
+        return y, end_memory - start_memory
     
 class Block(nn.Module):
     """ an unassuming Transformer block """

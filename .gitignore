@@ -2,3 +2,4 @@
 **/*.pyc
 
 week6_transformers/transformers-main/transformer_captioning/datasets/coco_captioning/
+week8_project2/data/
